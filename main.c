@@ -6,42 +6,73 @@
 #include <dirent.h>
 #include <sys/types.h>
 
-void print_files(char names[256][100], int sizes[100], int num_files, int dir_indexes[100], int num_dir){
-  printf("Directories:\n");
-  for (size_t i = 0; i < num_dir; i++) {
-    printf("\t\t%s  size: %d Bytes\n",names[dir_indexes[i]],sizes[i]);
-    strcpy(names[dir_indexes[i]],"");
-  }
-  printf("Regular files:\n");
-  for(size_t i = 0; i < num_files; i++){
-    if(strcmp(names[i],"") == 0){
-      printf("\t\t%s  size: %d Bytes\n",names[i], sizes[i]);
+int scan_directory(DIR * dir_stream, char dir_name[256],int inner){
+  int totalsize = 0;
+  char file_name[256];
+  char full_name[512];
+  struct dirent * file = readdir(dir_stream);
+  struct stat file_info;
+  while(file != NULL){
+    strcpy(full_name,dir_name);
+    strcat(full_name,"/");
+    strcat(full_name,file->d_name);
+    stat(full_name, &file_info);
+    //if its a regular file
+    if (S_ISREG(file_info.st_mode)){
+      for(size_t i = 0; i < inner; i++){
+        printf("\t");
+      }
+      printf("%s: %ld bytes\n",full_name,file_info.st_size);
+      totalsize+=file_info.st_size;
+    //if its a subdirectory
+    } else if (S_ISDIR(file_info.st_mode)){
+        for(size_t i = 0; i < inner; i++){
+          printf("\t");
+        }
+        printf("%s\n",full_name);
+        if(strcmp(file->d_name,".") != 0 && strcmp(file->d_name,"..") !=0){
+          DIR * sub_dir_stream = opendir(full_name);
+          totalsize+=scan_directory(sub_dir_stream,full_name,inner+1);
+        }
     }
+
+    file = readdir(dir_stream);
   }
+  return totalsize;
 }
 
-int main(){
-  char names[256][100];
-  int sizes[100], dir_indexes[100];
-  int totalsize, num_files;
-  int dir_index = 0;
-  DIR * directory = opendir("./");
-  DIR * file = readdir(directory);
-  struct stat file_info;
+int main(int argc, char const * argv[]) {
+  char dir_name[256];
 
-  for(size_t i = 0; file != NULL; i++){
-    names[i] = file->d_name[256];
-    stat("./"+names[i],&file_info);
-    sizes[i] = file_info.st_size;
-    if (S_ISDIR(file_info.st_mode)){
-      dir_indexes[dir_index] = i;
-      dir_index++;
+  //scan input for directory name
+  if (argc > 1) {
+      strcpy(dir_name,argv[1]);
     } else{
-      totalsize+=sizes[i];
+      printf("You did not enter a directory to scan\nWe recommend scanning \'dir-testing\'.Please enter a directory to scan:\n");
+      char input[256];
+      while(fgets(input, 256, stdin) == NULL){
+      }
+      input[strlen(input)-1] = 0;
+      strcpy(dir_name,input);
     }
-    num_files++;
+
+  DIR * dir_stream= opendir(dir_name); // open directory
+  if (dir_stream == NULL) {
+      printf("Errno: %s\n", strerror(errno));
+      return 0;
   }
-  printf("Statistics for directory: .\n");
-  printf("Total Diectory Size: %d Bytes\n",totalsize);
-  print_files(names,sizes,num_files+1,dir_indexes,dir_index+1);
+  //get its size
+  char file_name[256];
+  char full_name[512];
+  int file_size;
+  struct dirent * file;
+  struct stat file_info;
+  printf("\n");
+  printf("Scanning directory: %s ...\n",dir_name);
+  printf("\n");
+  int totalsize = scan_directory(dir_stream,dir_name,0);
+
+  printf("\nTotal Diectory Size: %d Bytes\n",totalsize);
+
+
 }

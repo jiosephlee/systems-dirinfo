@@ -4,12 +4,12 @@ else
 	CC = gcc
 endif
 
-all: main.o
+all: main.o main.c
 	$(CC) -o program main.o
 
 main.o: main.c
 	$(CC) -c main.c
-	
+
 run: all
 	./program
 
